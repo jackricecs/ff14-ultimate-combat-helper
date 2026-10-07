@@ -11,6 +11,8 @@ jobs:
   windows:
     name: Windows / .NET Framework 4.8
     runs-on: windows-latest
+    permissions:
+      contents: write  # softprops/action-gh-release 创建 Release 需要写权限
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
