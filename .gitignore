@@ -1,0 +1,12 @@
+# 构建产物
+bin/
+obj/
+artifacts/
+dist/
+*.user
+.vs/
+# 第三方依赖（ACT 与解析插件为闭源软件，不提交；由 tools/fetch-deps.* 下载）
+thirdparty/
+# 本地密钥（FFLogs / 大模型 API Key 等）
+*.secrets.json
+.env

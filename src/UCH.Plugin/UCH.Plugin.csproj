@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    ACT 插件。输出单个 UltimateCombatHelper.dll（Core 源码直接编入，免去依赖 DLL 的加载问题）。
+    构建：dotnet build -c Release -p:SdkVariant=cn      （国服）
+          dotnet build -c Release -p:SdkVariant=global  （国际服）
+  -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>UltimateCombatHelper</AssemblyName>
+    <RootNamespace>UltimateCombatHelper.Plugin</RootNamespace>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\$(SdkVariant)\</OutputPath>
+    <StartAction>Program</StartAction>
+    <StartProgram>$(ActDir)\Advanced Combat Tracker.exe</StartProgram>
+    <StartWorkingDirectory>$(ActDir)</StartWorkingDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\UCH.Core\**\*.cs" Exclude="..\UCH.Core\obj\**;..\UCH.Core\bin\**" LinkBase="Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Advanced Combat Tracker">
+      <HintPath>$(ActDir)\Advanced Combat Tracker.exe</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="FFXIV_ACT_Plugin.Common">
+      <HintPath>$(FfxivSdkDir)\FFXIV_ACT_Plugin.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+</Project>

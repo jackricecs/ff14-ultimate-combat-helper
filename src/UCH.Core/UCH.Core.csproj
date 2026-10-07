@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 纯逻辑库：不引用 ACT，可单元测试。插件项目以源码链接方式编进同一个 DLL。 -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>UltimateCombatHelper.Core</AssemblyName>
+    <RootNamespace>UltimateCombatHelper</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+</Project>

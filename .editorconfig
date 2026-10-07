@@ -1,0 +1,15 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
+
+[*.cs]
+# 源码含中文注释/字符串，统一 UTF-8；.NET Framework 无 Split(char)/TrimStart(char) 单字符重载，请用 char[] 版本
+csharp_new_line_before_open_brace = all

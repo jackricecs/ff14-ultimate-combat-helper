@@ -1,0 +1,66 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows / .NET Framework 4.8
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: 下载 ACT 与解析插件 SDK
+        shell: pwsh
+        run: ./tools/fetch-deps.ps1
+      - name: 单元测试
+        shell: pwsh
+        run: |
+          dotnet build tests/UCH.Core.Tests -c Release
+          ./tests/UCH.Core.Tests/bin/Release/UCH.Core.Tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: 构建插件（国服 / 国际服）
+        shell: pwsh
+        run: |
+          dotnet build src/UCH.Plugin -c Release -p:SdkVariant=cn
+          dotnet build src/UCH.Plugin -c Release -p:SdkVariant=global
+      - name: 打包
+        shell: pwsh
+        run: |
+          $ver = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "dev-" + "${{ github.sha }}".Substring(0,7) }
+          foreach ($v in "cn","global") {
+            $dir = "dist/UltimateCombatHelper-$ver-$v"
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            Copy-Item artifacts/$v/UltimateCombatHelper.dll $dir/
+            Copy-Item README.md, LICENSE, CHANGELOG.md $dir/
+            Compress-Archive -Path "$dir/*" -DestinationPath "dist/UltimateCombatHelper-$ver-$v.zip" -Force
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UltimateCombatHelper
+          path: dist/*.zip
+      - name: 发布 Release（推送 v* 标签时）
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+
+  linux-audit:
+    name: Linux / Mono 构建 + API 兼容性审计
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Mono 与工具
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mono-mcs mono-runtime libmono-system-runtime-serialization4.0-cil
+          pip install dnfile
+      - name: 构建 + 审计 + 测试
+        run: LANG=C.UTF-8 bash tools/build-linux.sh

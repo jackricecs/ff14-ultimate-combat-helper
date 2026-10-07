@@ -1,0 +1,18 @@
+name: 功能建议
+description: 新功能或改进
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes: { label: 想解决什么问题, description: 在什么副本/职业/场景下 }
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes: { label: 你设想的做法 }
+  - type: checkboxes
+    id: readonly
+    attributes:
+      label: 确认
+      options:
+        - label: 这个功能只需要读取战斗日志并提示，不需要向游戏写入或自动操作
+          required: true

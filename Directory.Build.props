@@ -1,0 +1,22 @@
+<Project>
+  <!-- 所有项目共享的属性 -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- 第三方依赖由 tools/fetch-deps.ps1 下载到这里（不提交到仓库：ACT 与解析插件均非开源） -->
+    <ThirdPartyDir>$(MSBuildThisFileDirectory)thirdparty\</ThirdPartyDir>
+    <ActDir Condition="'$(ActDir)' == ''">$(ThirdPartyDir)ACT</ActDir>
+    <!-- 解析插件 SDK 变体：cn（国服 FFXIV_ACT_Plugin_CN，无强命名）或 global（原版，有强命名） -->
+    <SdkVariant Condition="'$(SdkVariant)' == ''">cn</SdkVariant>
+    <FfxivSdkDir Condition="'$(FfxivSdkDir)' == ''">$(ThirdPartyDir)sdk-$(SdkVariant)\SDK</FfxivSdkDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 没装 .NET Framework 4.8 Targeting Pack 也能用 dotnet CLI 构建 -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
