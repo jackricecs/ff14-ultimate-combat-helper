@@ -20,7 +20,7 @@
 ## 安装
 
 1. 先装好 ACT 与 FFXIV 解析插件。国服用 [FFXIV_ACT_Plugin_CN](https://github.com/TundraWork/FFXIV_ACT_Plugin_CN)，国际服用原版解析插件。
-2. 从 [Releases](../../releases) 下载对应版本：国服下载 `-cn.zip`，国际服下载 `-global.zip`。解压到任意目录，例如 `ACT\Plugins\UltimateCombatHelper\`。
+2. 从 [Releases](https://github.com/jackricecs/ff14-ultimate-combat-helper/releases) 下载对应版本：国服下载 `-cn.zip`，国际服下载 `-global.zip`。解压到任意目录，例如 `ACT\Plugins\UltimateCombatHelper\`。
 3. 在 ACT「插件」页选择 `UltimateCombatHelper.dll`，点「添加/启用插件」，会出现「战斗辅助」标签页。
 4. 在 ACT「选项 → 声音设置」中把 TTS 设为中文语音（如 Microsoft Huihui / Xiaoxiao）。
 5. 在「DoT 监控」页点「试听」，确认能听到语音。

@@ -13,7 +13,7 @@ namespace UltimateCombatHelper.Plugin.UI
 {
     internal sealed class MainPanel : UserControl
     {
-        private const string RepoUrl = "https://github.com/<你的用户名>/ff14-ultimate-combat-helper";
+        private const string RepoUrl = "https://github.com/jackricecs/ff14-ultimate-combat-helper";
 
         private readonly UchPlugin plugin;
         private readonly Timer uiTimer = new Timer { Interval = 300 };
