@@ -6,10 +6,12 @@ namespace UltimateCombatHelper.Logs
     /// <summary>网络日志行类型（十进制），字段定义见 cactbot docs/LogGuide.md。</summary>
     public static class LogType
     {
+        public const int Chat = 0;
         public const int ChangeZone = 1;
         public const int ChangePrimaryPlayer = 2;
         public const int AddCombatant = 3;
         public const int RemoveCombatant = 4;
+        public const int PlayerStats = 12;
         public const int StartsCasting = 20;
         public const int Ability = 21;
         public const int AoeAbility = 22;
@@ -41,6 +43,24 @@ namespace UltimateCombatHelper.Logs
             int type;
             if (f.Length < 2 || !int.TryParse(f[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out type)) return null;
             return new LogLine(type, f, receivedAt);
+        }
+
+        /// <summary>
+        /// 只读出行首的类型号（"26|..." → 26），不拆分整行；失败返回 -1。
+        /// 用它代替 ACT 的 detectedType 做预过滤：不依赖解析插件怎么填 detectedType。
+        /// </summary>
+        public static int PeekType(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return -1;
+            int v = 0, i = 0;
+            for (; i < raw.Length && i < 6; i++)
+            {
+                char c = raw[i];
+                if (c == '|') break;
+                if (c < '0' || c > '9') return -1;
+                v = v * 10 + (c - '0');
+            }
+            return i > 0 && i < raw.Length && raw[i] == '|' ? v : -1;
         }
 
         public int Count { get { return Fields.Length; } }

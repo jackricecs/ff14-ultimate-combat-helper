@@ -23,7 +23,7 @@ namespace UltimateCombatHelper.Tests
         public void Log(string t) { Logs.Add(t); }
     }
 
-    internal static class Program
+    internal static partial class Program
     {
         static int pass, fail;
         static DateTime now = new DateTime(2026, 10, 7, 20, 0, 0);
@@ -66,6 +66,10 @@ namespace UltimateCombatHelper.Tests
             TierFilterTests();
             TargetModeTests();
             RobustnessTests();
+            JobTests();
+            DiagnosticsTests();
+            SuppressionTraceTests();
+            ReportTests();
             Console.WriteLine("通过 " + pass + " / " + (pass + fail));
             return fail == 0 ? 0 : 1;
         }

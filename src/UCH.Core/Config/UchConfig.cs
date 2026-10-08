@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using UltimateCombatHelper.Diagnostics;
 using UltimateCombatHelper.Modules.Dot;
 
 namespace UltimateCombatHelper.Config
@@ -20,6 +21,7 @@ namespace UltimateCombatHelper.Config
         [DataMember(Order = 0)] public int Version;
         [DataMember(Order = 1)] public GeneralConfig General;
         [DataMember(Order = 2)] public DotConfig Dot;
+        [DataMember(Order = 3)] public DiagnosticsConfig Diagnostics;
 
         public UchConfig() { Defaults(); }
         [OnDeserializing] private void OnDeserializing(StreamingContext c) { Defaults(); }
@@ -27,6 +29,7 @@ namespace UltimateCombatHelper.Config
         {
             if (General == null) General = new GeneralConfig();
             if (Dot == null) Dot = DotConfig.CreateDefault();
+            if (Diagnostics == null) Diagnostics = new DiagnosticsConfig();
         }
 
         private void Defaults()
@@ -34,6 +37,21 @@ namespace UltimateCombatHelper.Config
             Version = CurrentVersion;
             General = new GeneralConfig();
             Dot = DotConfig.CreateDefault();
+            Diagnostics = new DiagnosticsConfig();
+        }
+
+        /// <summary>当前配置的 JSON 文本（诊断包里附带）。</summary>
+        public string ToJson()
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var w = JsonReaderWriterFactory.CreateJsonWriter(ms, new UTF8Encoding(false), false, true, "  "))
+                {
+                    new DataContractJsonSerializer(typeof(UchConfig)).WriteObject(w, this);
+                    w.Flush();
+                }
+                return Encoding.UTF8.GetString(ms.ToArray());
+            }
         }
     }
 

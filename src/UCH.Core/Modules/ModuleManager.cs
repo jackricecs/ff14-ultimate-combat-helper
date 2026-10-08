@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using UltimateCombatHelper.Context;
+using UltimateCombatHelper.Diagnostics;
 using UltimateCombatHelper.Logs;
 using UltimateCombatHelper.Notify;
 
@@ -20,16 +21,18 @@ namespace UltimateCombatHelper.Modules
         public CombatContext Context { get; private set; }
         public ThrottledNotifier Notifier { get; private set; }
         public Func<DateTime> Clock { get; private set; }
+        public DiagLog Diag { get; private set; }
 
         /// <summary>只有这些类型会被解析和分发；模块需要新类型时加到这里。</summary>
         public static readonly HashSet<int> InterestingTypes = new HashSet<int> {
             LogType.ChangeZone, LogType.ChangePrimaryPlayer, LogType.AddCombatant, LogType.RemoveCombatant,
-            LogType.Ability, LogType.AoeAbility, LogType.Death, LogType.StatusAdd, LogType.StatusRemove,
+            LogType.PlayerStats, LogType.Ability, LogType.AoeAbility, LogType.Death, LogType.StatusAdd, LogType.StatusRemove,
         };
 
-        public ModuleManager(INotifier notifier, Func<string> currentTargetProvider, Func<DateTime> clock = null)
+        public ModuleManager(INotifier notifier, Func<string> currentTargetProvider, Func<DateTime> clock = null, DiagLog diag = null)
         {
             Clock = clock ?? (() => DateTime.Now);
+            Diag = diag ?? new DiagLog(Clock);
             Context = new CombatContext();
             Notifier = new ThrottledNotifier(notifier, Clock);
             targetProvider = currentTargetProvider;
@@ -54,7 +57,7 @@ namespace UltimateCombatHelper.Modules
             foreach (var m in Modules)
             {
                 try { m.OnLogLine(l); }
-                catch (Exception ex) { Notifier.Log("[" + m.Id + "] 处理日志出错：" + ex.Message); }
+                catch (Exception ex) { ReportError(m, "处理日志出错", ex, l); }
             }
         }
 
@@ -66,10 +69,27 @@ namespace UltimateCombatHelper.Modules
                 foreach (var m in Modules)
                 {
                     try { m.OnTick(); }
-                    catch (Exception ex) { Notifier.Log("[" + m.Id + "] 定时处理出错：" + ex.Message); }
+                    catch (Exception ex) { ReportError(m, "定时处理出错", ex, null); }
                 }
             }
             finally { Interlocked.Exchange(ref ticking, 0); }
+        }
+
+        private readonly Dictionary<string, DateTime> lastError = new Dictionary<string, DateTime>();
+
+        /// <summary>同一个错误 10 秒内只记一次（每 100ms 抛一次的异常不能刷爆日志）。</summary>
+        private void ReportError(IModule m, string what, Exception ex, LogLine l)
+        {
+            string key = m.Id + "|" + what + "|" + ex.GetType().Name + "|" + ex.Message;
+            DateTime now = Clock(), t;
+            lock (lastError)
+            {
+                if (lastError.TryGetValue(key, out t) && now - t < TimeSpan.FromSeconds(10)) return;
+                if (lastError.Count > 200) lastError.Clear();   // 异常信息里常带变化的数值，防止无限增长
+                lastError[key] = now;
+            }
+            Notifier.Log("[" + m.Id + "] " + what + "：" + ex.Message);
+            Diag.Error(m.Id, what + "：" + ex + (l == null ? "" : "\n  日志行：" +string.Join("|", l.Fields)));
         }
 
         public void DetachAll()

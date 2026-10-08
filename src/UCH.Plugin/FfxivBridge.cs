@@ -20,6 +20,9 @@ namespace UltimateCombatHelper.Plugin
 
         public event Action Attached;
 
+        /// <summary>"国服，游戏版本 xxx"（连接后可用，诊断包用）。</summary>
+        public string Description { get; private set; }
+
         public FfxivBridge(Action<string> log)
         {
             this.log = log;
@@ -45,7 +48,8 @@ namespace UltimateCombatHelper.Plugin
             {
                 AttachImpl(data.pluginObj);
                 retryTimer.Stop();
-                log("已连接 FFXIV 解析插件：" + DescribeImpl());
+                Description = DescribeImpl() + "，插件 " + data.lblPluginTitle.Text;
+                log("已连接 FFXIV 解析插件：" + Description);
                 var h = Attached; if (h != null) h();
             }
             catch (FileNotFoundException)
@@ -99,6 +103,21 @@ namespace UltimateCombatHelper.Plugin
             var me = ((IDataRepository)repository).GetCombatantList().FirstOrDefault(c => c.ID == pid);
             if (me == null) return null;
             return me.TargetID == 0 ? "E0000000" : me.TargetID.ToString("X");
+        }
+
+        /// <summary>自己的职业 ID（Data.Jobs），取不到返回 null。</summary>
+        public int? GetPlayerJob(string playerIdHex)
+        {
+            if (!IsAttached || string.IsNullOrEmpty(playerIdHex)) return null;
+            try { return GetPlayerJobImpl(playerIdHex); } catch (Exception) { return null; }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private int? GetPlayerJobImpl(string playerIdHex)
+        {
+            uint pid = Convert.ToUInt32(playerIdHex, 16);
+            var me = ((IDataRepository)repository).GetCombatantList().FirstOrDefault(c => c.ID == pid);
+            return me == null ? (int?)null : me.Job;
         }
 
         public void Dispose()

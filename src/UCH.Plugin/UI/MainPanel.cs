@@ -1,13 +1,17 @@
 // MainPanel.cs — 插件设置界面（纯代码 WinForms，无设计器文件，便于在任何环境编译与代码审查）
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 using Advanced_Combat_Tracker;
 using UltimateCombatHelper.Data;
+using UltimateCombatHelper.Diagnostics;
 using UltimateCombatHelper.Modules.Dot;
+using static UltimateCombatHelper.Plugin.UI.UiKit;
 
 namespace UltimateCombatHelper.Plugin.UI
 {
@@ -16,11 +20,16 @@ namespace UltimateCombatHelper.Plugin.UI
         private const string RepoUrl = "https://github.com/jackricecs/ff14-ultimate-combat-helper";
 
         private readonly UchPlugin plugin;
+        private const int MaxPendingLog = 2000;
+
         private readonly Timer uiTimer = new Timer { Interval = 300 };
+        private readonly ConcurrentQueue<string> pendingLog = new ConcurrentQueue<string>();
+        private readonly DiagnosticsTab diagTab;
         private bool loading;
+        private int highlightedJob = int.MinValue;
 
         // 总览
-        private Label lblStatus;
+        private Label lblStatus, lblJobDot, lblDotJob;
         private ListView lvEnemies;
         private TextBox logBox;
         // 通用
@@ -48,24 +57,45 @@ namespace UltimateCombatHelper.Plugin.UI
             tabs.TabPages.Add(BuildOverview());
             tabs.TabPages.Add(BuildDot());
             tabs.TabPages.Add(BuildGeneral());
+            diagTab = new DiagnosticsTab(plugin);
+            tabs.TabPages.Add(diagTab);
             Controls.Add(tabs);
+            plugin.Diagnostics.Log.Written += OnDiagWritten;
             uiTimer.Tick += (s, e) => RefreshLive();
             uiTimer.Start();
         }
 
-        public void StopTimers() { uiTimer.Stop(); uiTimer.Dispose(); }
+        public void StopTimers()
+        {
+            plugin.Diagnostics.Log.Written -= OnDiagWritten;
+            uiTimer.Stop(); uiTimer.Dispose();
+        }
+
+        /// <summary>任意线程写入的日志先入队，由界面定时器批量追加（避免每条日志一次跨线程调用）。</summary>
+        private void OnDiagWritten(DiagEntry e)
+        {
+            if (pendingLog.Count < MaxPendingLog) pendingLog.Enqueue(e.ToString());
+        }
+
+        private static Label JobDotLabel()
+        {
+            return new Label { AutoSize = true, Font = Emphasis, Margin = new Padding(3, 4, 3, 4), Text = "当前职业：识别中…" };
+        }
 
         // ================= 总览 =================
         private TabPage BuildOverview()
         {
             var page = new TabPage("总览");
             var t = Grid(3, new[] { SizeType.AutoSize, SizeType.Percent, SizeType.Percent }, new[] { 0f, 40f, 60f });
-            lblStatus = new Label { AutoSize = true, Font = new Font("Microsoft YaHei UI", 9.5f) };
+            lblStatus = new Label { AutoSize = true, Font = Normal };
+            lblJobDot = JobDotLabel();
             var buttons = Flow(
                 Btn("重新加载配置", () => plugin.ReloadConfig()),
-                Btn("打开配置目录", () => System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + plugin.ConfigPath + "\"")),
+                Btn("打开配置目录", () => Reveal(plugin.ConfigPath)),
+                Btn("导出诊断包", () => diagTab.ExportNow()),
+                Btn("打开日志目录", () => Reveal(plugin.Diagnostics.LogsDir)),
                 Btn("项目主页", () => { try { System.Diagnostics.Process.Start(RepoUrl); } catch (Exception) { } }));
-            var top = Flow(lblStatus); top.Controls.Add(buttons); top.FlowDirection = FlowDirection.TopDown;
+            var top = Column(lblStatus, lblJobDot, buttons);
             lvEnemies = List(new[] { "敌人", "最大HP", "主要?" }, new[] { 220, 120, 60 });
             logBox = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Microsoft YaHei UI", 9f) };
             t.Controls.Add(top); t.Controls.Add(Group("场上敌人（用于判断主要目标）", lvEnemies)); t.Controls.Add(Group("日志", logBox));
@@ -77,8 +107,9 @@ namespace UltimateCombatHelper.Plugin.UI
         private TabPage BuildDot()
         {
             var page = new TabPage("DoT 监控");
-            var t = Grid(3, new[] { SizeType.AutoSize, SizeType.Percent, SizeType.Percent }, new[] { 0f, 55f, 45f });
+            var t = Grid(4, new[] { SizeType.AutoSize, SizeType.AutoSize, SizeType.Percent, SizeType.Percent }, new[] { 0f, 0f, 55f, 45f });
 
+            lblDotJob = JobDotLabel();
             cbDotEnabled = new CheckBox { Text = "启用 DoT 提醒", AutoSize = true };
             numLead = Num(0, 30, 1, 0.5m, 60);
             cbDotCombat = new CheckBox { Text = "仅战斗中", AutoSize = true };
@@ -93,8 +124,8 @@ namespace UltimateCombatHelper.Plugin.UI
                             Btn("试听", () => ActGlobals.oFormActMain.TTS(txtTemplate.Text.Replace("{dot}", "高闪雷").Replace("{target}", "木人")
                                 .Replace("{sec}", ((int)numLead.Value).ToString(CultureInfo.InvariantCulture)))));
             var row2 = Flow(Lbl("目标："), cmbTargetMode, Lbl("主要敌人 HP ≥ 最高的"), numRatio, Lbl("倍"));
-            var left = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false };
-            left.Controls.Add(row1); left.Controls.Add(row2);
+            var left = Column(row1, row2);
+            left.Dock = DockStyle.None;
             var settings = Flow(left, Group("在这些副本提醒", clbTiers, 190, 140));
 
             gridDots = new DataGridView { Dock = DockStyle.Fill, AllowUserToAddRows = true, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill };
@@ -106,8 +137,9 @@ namespace UltimateCombatHelper.Plugin.UI
 
             var gridBox = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2 };
             gridBox.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); gridBox.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            gridBox.Controls.Add(gridDots); gridBox.Controls.Add(Flow(Btn("保存 DoT 设置", SaveDot), Lbl("修改上面任意设置后点保存；状态 ID 可在 ACT 日志 StatusAdd 1A: 后面找到")));
+            gridBox.Controls.Add(gridDots); gridBox.Controls.Add(Flow(Btn("保存 DoT 设置", SaveDot), Lbl("修改上面任意设置后点保存；黄色行 = 当前职业。不知道 DoT 的状态 ID？挂一次后看日志里「不在 DoT 监控列表」那条")));
 
+            t.Controls.Add(lblDotJob);
             t.Controls.Add(settings); t.Controls.Add(Group("监控的 DoT", gridBox)); t.Controls.Add(Group("实时（你挂着的 DoT）", lvActive));
             page.Controls.Add(t);
             return page;
@@ -156,6 +188,8 @@ namespace UltimateCombatHelper.Plugin.UI
             foreach (var x in d.Dots)
                 gridDots.Rows.Add(x.Enabled, x.Job, x.Id, x.Note, x.Name,
                                   x.LeadSeconds.HasValue ? x.LeadSeconds.Value.ToString(CultureInfo.InvariantCulture) : "");
+            highlightedJob = int.MinValue;
+            diagTab.LoadFromConfig(c.Diagnostics);
             loading = false;
         }
 
@@ -211,6 +245,9 @@ namespace UltimateCombatHelper.Plugin.UI
                 UchPlugin.Version, ctx.MyId.Length == 0 ? "等待中…" : ctx.MyId,
                 ctx.Zone.Id == 0 ? "未知" : ctx.Zone.NameCn, ZoneTable.DisplayName(ctx.Zone.Tier),
                 ctx.InCombat ? "战斗中" : "非战斗", plugin.Config.General.TestModeAnywhere ? "　[测试模式]" : "");
+            RefreshJobDot(ctx.MyJob);
+            FlushLog();
+            diagTab.RefreshLive();
 
             if (lvEnemies.Parent != null && lvEnemies.Visible)
             {
@@ -232,56 +269,33 @@ namespace UltimateCombatHelper.Plugin.UI
             }
         }
 
-        public void AppendLog(string msg)
+        /// <summary>两个页顶部的"当前职业 / DoT 剩余"，以及 DoT 列表里高亮当前职业的行。</summary>
+        private void RefreshJobDot(int job)
         {
-            if (logBox == null || logBox.IsDisposed) return;
-            if (logBox.IsHandleCreated && logBox.InvokeRequired) { logBox.BeginInvoke(new Action<string>(AppendLog), msg); return; }
-            if (logBox.TextLength > 30000) logBox.Clear();
-            logBox.AppendText(msg + Environment.NewLine);
+            var dot = plugin.Dot;
+            var active = dot == null || dot.Tracker == null ? new List<DotEntry>() : dot.Tracker.Snapshot();
+            var v = DotStatus.Describe(job, plugin.Config.Dot, active, DateTime.Now);
+            string text = "当前职业：" + v.Job + "　　DoT：" + v.Dot;
+            foreach (var l in new[] { lblJobDot, lblDotJob })
+            {
+                if (l.Text != text) l.Text = text;
+                l.ForeColor = v.Urgent ? Color.OrangeRed : SystemColors.ControlText;
+            }
+            if (job == highlightedJob) return;
+            highlightedJob = job;
+            string name = job == Jobs.Unknown ? null : Jobs.NameCn(Jobs.ToAdvanced(job));
+            foreach (DataGridViewRow r in gridDots.Rows)
+                if (!r.IsNewRow) r.DefaultCellStyle.BackColor = name != null && Cell(r, "Job") == name ? Color.LightYellow : Color.Empty;
         }
 
-        // ================= 小工具 =================
-        private static TableLayoutPanel Grid(int rows, SizeType[] types, float[] sizes)
+        private void FlushLog()
         {
-            var t = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = rows, Padding = new Padding(4) };
-            for (int i = 0; i < rows; i++) t.RowStyles.Add(new RowStyle(types[i], sizes[i]));
-            return t;
-        }
-        private static FlowLayoutPanel Flow(params Control[] cs)
-        {
-            var f = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Fill };
-            f.Controls.AddRange(cs);
-            return f;
-        }
-        private static GroupBox Group(string text, Control inner, int w = 0, int h = 0)
-        {
-            var g = new GroupBox { Text = text, Dock = w == 0 ? DockStyle.Fill : DockStyle.None, Padding = new Padding(6) };
-            if (w > 0) g.Size = new Size(w, h);
-            inner.Dock = DockStyle.Fill;
-            g.Controls.Add(inner);
-            return g;
-        }
-        private static Label Lbl(string t) { return new Label { Text = t, AutoSize = true, Margin = new Padding(3, 7, 3, 0) }; }
-        private static Button Btn(string t, Action a) { var b = new Button { Text = t, AutoSize = true }; b.Click += (s, e) => a(); return b; }
-        private static NumericUpDown Num(decimal min, decimal max, int dp, decimal inc, int w)
-        {
-            return new NumericUpDown { Minimum = min, Maximum = max, DecimalPlaces = dp, Increment = inc, Width = w };
-        }
-        private static decimal Clamp(double v, NumericUpDown n) { return Math.Min(n.Maximum, Math.Max(n.Minimum, (decimal)v)); }
-        private static ListView List(string[] cols, int[] widths)
-        {
-            var lv = new ListView { View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill };
-            for (int i = 0; i < cols.Length; i++) lv.Columns.Add(cols[i], widths[i]);
-            return lv;
-        }
-        private static void Fill(ListView lv, IEnumerable<ListViewItem> items)
-        {
-            lv.BeginUpdate(); lv.Items.Clear(); lv.Items.AddRange(items.ToArray()); lv.EndUpdate();
-        }
-        private static string Cell(DataGridViewRow r, string col)
-        {
-            var v = r.Cells[col].Value;
-            return v == null ? "" : v.ToString().Trim();
+            if (pendingLog.IsEmpty || logBox.IsDisposed) return;
+            var sb = new StringBuilder();
+            string msg;
+            while (pendingLog.TryDequeue(out msg)) sb.Append(msg).Append(Environment.NewLine);
+            if (logBox.TextLength + sb.Length > 60000) logBox.Clear();
+            logBox.AppendText(sb.ToString());
         }
     }
 }

@@ -12,6 +12,6 @@ for v in cn global; do
 done
 R="${REFASM:-/tmp/refasm/v4.7}"
 mcs -nostdlib -noconfig -out:artifacts/UCH.Core.Tests.exe -r:$R/mscorlib.dll -r:$R/System.dll -r:$R/System.Core.dll \
-    -r:$R/System.Runtime.Serialization.dll -r:$R/System.Xml.dll $core tests/UCH.Core.Tests/Program.cs
+    -r:$R/System.Runtime.Serialization.dll -r:$R/System.Xml.dll $core tests/UCH.Core.Tests/*.cs
 python3 tools/audit_netfx_refs.py artifacts/UCH.Core.Tests.exe "$R" >/dev/null
 mono artifacts/UCH.Core.Tests.exe

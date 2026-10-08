@@ -21,13 +21,21 @@ namespace UltimateCombatHelper.Context
         public string MyName { get; set; }
         public ZoneInfo Zone { get; private set; }
         public bool InCombat { get; set; }
+        /// <summary>当前职业 ID（见 Data.Jobs），未知为 Jobs.Unknown。</summary>
+        public int MyJob { get; private set; }
+        /// <summary>职业是从哪里得知的（SDK / 03行 / 12行），诊断用。</summary>
+        public string MyJobSource { get; private set; }
 
         public event Action<ZoneInfo> ZoneChanged;
         public event Action<string> PlayerChanged;
+        /// <summary>(职业 ID, 来源)</summary>
+        public event Action<int, string> JobChanged;
 
         public CombatContext()
         {
             MyId = "";
+            MyJob = Jobs.Unknown;
+            MyJobSource = "";
             Zone = ZoneInfo.Unknown(0, "");
         }
 
@@ -42,9 +50,18 @@ namespace UltimateCombatHelper.Context
         {
             if (string.IsNullOrWhiteSpace(id)) return;
             string n = Hex.Norm(id);
-            bool changed;
-            lock (sync) { changed = n != MyId; MyId = n; }
+            bool changed, switched;
+            lock (sync) { changed = n != MyId; switched = changed && MyId.Length > 0; MyId = n; }
+            if (switched) SetMyJob(Jobs.Unknown, "切换角色");
             if (changed) { var h = PlayerChanged; if (h != null) h(n); }
+        }
+
+        public void SetMyJob(long job, string source)
+        {
+            if (job != Jobs.Unknown && !Jobs.IsPlausible(job)) return;
+            int j = (int)job;
+            lock (sync) { if (j == MyJob) return; MyJob = j; MyJobSource = source ?? ""; }
+            var h = JobChanged; if (h != null) h(j, source);
         }
 
         public void SetZone(uint territoryId, string name)
@@ -60,7 +77,13 @@ namespace UltimateCombatHelper.Context
             {
                 case LogType.ChangeZone: SetZone(l.HexUInt(2), l[3]); break;
                 case LogType.ChangePrimaryPlayer: SetMyId(l[2]); break;
-                case LogType.AddCombatant: Observe(l.Id(2), l[3], l.Long(12)); break;          // 03: maxHp 在下标 12
+                case LogType.AddCombatant:
+                    Observe(l.Id(2), l[3], l.Long(12));                                         // 03: maxHp 在下标 12
+                    if (MyId.Length > 0 && l.Id(2) == MyId && l[4].Length > 0) SetMyJob(l.HexUInt(4), "03行");   // 03: job(十六进制) 下标 4
+                    break;
+                case LogType.PlayerStats:
+                    if (l[2].Length > 0) SetMyJob(l.Long(2), "12行");                           // 12: job(十进制) 下标 2，总是关于自己
+                    break;
                 case LogType.RemoveCombatant:
                 case LogType.Death: Forget(l.Id(2)); break;
                 case LogType.Ability:

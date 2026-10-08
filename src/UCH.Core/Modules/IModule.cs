@@ -1,5 +1,6 @@
 using System;
 using UltimateCombatHelper.Context;
+using UltimateCombatHelper.Diagnostics;
 using UltimateCombatHelper.Logs;
 using UltimateCombatHelper.Notify;
 
@@ -11,6 +12,8 @@ namespace UltimateCombatHelper.Modules
         CombatContext Context { get; }
         ThrottledNotifier Notifier { get; }
         Func<DateTime> Clock { get; }
+        /// <summary>运行日志（诊断用，可导出）。</summary>
+        DiagLog Diag { get; }
         /// <summary>玩家当前选中目标 ID（十六进制）；无目标或未知返回 null。</summary>
         string GetCurrentTargetId();
     }

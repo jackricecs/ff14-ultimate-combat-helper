@@ -13,7 +13,7 @@
 ```
 FFXIV 客户端 ─► FFXIV_ACT_Plugin(_CN) ─► ACT OnLogLineRead(originalLogLine: "26|ts|...")
                                               │
-                                     UchPlugin（按 detectedType 预过滤）
+                                     UchPlugin（按行首类型号预过滤，并交给 LineRecorder 记录）
                                               │ LogLine.Parse
                                               ▼
                                        ModuleManager.Dispatch
@@ -34,10 +34,12 @@ src/UCH.Core/                 纯逻辑（net48，无 ACT 依赖）
   Modules/IModule.cs          模块接口与宿主接口
   Modules/ModuleManager.cs    分发、定时、异常隔离
   Modules/Dot/                功能：DoT 监控
+  Diagnostics/                运行日志、战斗日志行记录、战斗摘要、诊断包导出与脱敏
 src/UCH.Plugin/               ACT 插件（编译时把 Core 源码一并编入，输出单个 DLL）
   UchPlugin.cs                IActPluginV1 入口
+  UchPlugin.Diagnostics.cs    诊断包里与 ACT 相关的部分（环境、状态、遭遇信息）
   FfxivBridge.cs              解析插件 SDK 安全对接（反射 + NoInlining + 重试）
-  UI/MainPanel.cs             设置界面
+  UI/MainPanel.cs             设置界面（UI/DiagnosticsTab.cs 诊断页，UI/UiKit.cs 控件小工具）
 tests/UCH.Core.Tests/         无框架控制台测试（Windows / Mono 通用）
 tools/                        依赖下载、Linux 构建、API 审计、数据生成
 docs/                         设计文档

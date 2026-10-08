@@ -1,4 +1,4 @@
-# fetch-deps.ps1 — 下载构建所需的第三方程序集到 thirdparty/（不提交到仓库）
+﻿# fetch-deps.ps1 — 下载构建所需的第三方程序集到 thirdparty/（不提交到仓库）
 #   ACT 主程序（引用用）、国服解析插件 SDK（无强命名）、国际服解析插件 SDK（有强命名）
 # 版本号集中在这里维护；升级时改这三个变量，并更新 docs/development.md 的版本说明。
 param(
